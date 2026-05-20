@@ -1,0 +1,98 @@
+{
+  "test_date": "2026-05-15T11:48:14.163077",
+  "total_tests": 5,
+  "passed": 4,
+  "failed": 1,
+  "pass_rate": 80.0,
+  "average_score": 90.0,
+  "results": [
+    {
+      "component": "FastAPI集成",
+      "test_name": "API框架集成测试",
+      "github_project": "tiangolo/fastapi",
+      "status": "passed",
+      "score": 100.0,
+      "execution_time": 0.2980983257293701,
+      "findings": [
+        "✓ FastAPI应用创建成功",
+        "✓ Pydantic模型验证工作正常",
+        "✓ 异步路由处理正常"
+      ],
+      "recommendations": []
+    },
+    {
+      "component": "SQLAlchemy集成",
+      "test_name": "数据库ORM集成测试",
+      "github_project": "sqlalchemy/sqlalchemy",
+      "status": "passed",
+      "score": 100.0,
+      "execution_time": 0.20702004432678223,
+      "findings": [
+        "✓ SQLAlchemy模型定义成功",
+        "✓ 数据库连接和CRUD操作正常",
+        "✓ 事务处理正常工作"
+      ],
+      "recommendations": []
+    },
+    {
+      "component": "Pydantic验证",
+      "test_name": "数据验证和模型测试",
+      "github_project": "pydantic/pydantic",
+      "status": "failed",
+      "score": 50.0,
+      "execution_time": 0.002705097198486328,
+      "findings": [
+        "⚠ Pydantic未安装，跳过测试"
+      ],
+      "recommendations": [
+        "安装Pydantic: pip install pydantic[email]"
+      ]
+    },
+    {
+      "component": "缓存系统",
+      "test_name": "多策略缓存测试",
+      "github_project": "python-trio/cachetools",
+      "status": "passed",
+      "score": 100.0,
+      "execution_time": 0.0017435550689697266,
+      "findings": [
+        "✓ LRU缓存正常工作",
+        "✓ TTL缓存正常工作",
+        "✓ LFU缓存正常工作",
+        "✓ 缓存驱逐策略正常"
+      ],
+      "recommendations": []
+    },
+    {
+      "component": "监控系统",
+      "test_name": "Prometheus指标测试",
+      "github_project": "prometheus/client_python",
+      "status": "passed",
+      "score": 100.0,
+      "execution_time": 1.6689300537109375e-05,
+      "findings": [
+        "✓ 指标收集正常工作",
+        "✓ 请求计数准确",
+        "✓ 响应时间计算正常",
+        "✓ 错误追踪正常"
+      ],
+      "recommendations": []
+    }
+  ],
+  "summary": {
+    "total_score": 90.0,
+    "grade": "A (优秀)",
+    "strengths": [
+      "FastAPI集成: 100.0/100",
+      "SQLAlchemy集成: 100.0/100",
+      "缓存系统: 100.0/100",
+      "监控系统: 100.0/100"
+    ],
+    "weaknesses": [
+      "Pydantic验证: 50.0/100 - 安装Pydantic: pip install pydantic[email]"
+    ],
+    "action_items": [
+      "[Pydantic验证] 安装Pydantic: pip install pydantic[email]"
+    ]
+  }
+}

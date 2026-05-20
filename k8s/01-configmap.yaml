@@ -1,0 +1,23 @@
+# Kubernetes ConfigMap - 配置管理
+# Agent 永续自进化运行系统
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-evolution-config
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    environment: production
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  UVICORN_HOST: "0.0.0.0"
+  UVICORN_PORT: "8000"
+  UVICORN_WORKERS: "4"
+  DATABASE_URL: "postgresql+asyncpg://agent_user:changethis@agent-evolution-postgres:5432/agent_db"
+  REDIS_URL: "redis://agent-evolution-redis:6379/0"
+  PROMETHEUS_METRICS_ENABLED: "true"
+  HEALTH_CHECK_ENABLED: "true"
+  CACHE_ENABLED: "true"
+  EVENT_DRIVEN_ENABLED: "true"
+  AUTO_EVOLUTION_ENABLED: "true"

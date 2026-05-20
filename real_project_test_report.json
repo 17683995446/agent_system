@@ -1,0 +1,111 @@
+{
+  "start_time": "2026-05-15T12:09:54.129605+00:00",
+  "project": "Flask",
+  "tests": [
+    {
+      "name": "flask_unit_tests",
+      "type": "unit",
+      "status": "passed",
+      "duration": 6.514587163925171,
+      "message": "35 tests passed"
+    },
+    {
+      "name": "agent_system_integration",
+      "type": "integration",
+      "status": "passed",
+      "duration": 0.2310488224029541,
+      "message": "Agent系统成功处理Flask项目"
+    }
+  ],
+  "structure": {
+    "project_name": "Flask",
+    "project_path": "/tmp/flask_real_project",
+    "timestamp": "2026-05-15T12:09:54.129612+00:00",
+    "directories": {
+      "tests": {
+        "path": "/tmp/flask_real_project/tests",
+        "file_count": 41
+      },
+      "docs": {
+        "path": "/tmp/flask_real_project/docs",
+        "file_count": 1
+      },
+      "src": {
+        "path": "/tmp/flask_real_project/src",
+        "file_count": 24
+      },
+      ".git": {
+        "path": "/tmp/flask_real_project/.git",
+        "file_count": 0
+      },
+      ".devcontainer": {
+        "path": "/tmp/flask_real_project/.devcontainer",
+        "file_count": 0
+      },
+      ".github": {
+        "path": "/tmp/flask_real_project/.github",
+        "file_count": 0
+      },
+      "examples": {
+        "path": "/tmp/flask_real_project/examples",
+        "file_count": 17
+      }
+    },
+    "files": {
+      ".pre-commit-config.yaml": "/tmp/flask_real_project/.pre-commit-config.yaml",
+      ".gitignore": "/tmp/flask_real_project/.gitignore",
+      ".editorconfig": "/tmp/flask_real_project/.editorconfig",
+      "CHANGES.rst": "/tmp/flask_real_project/CHANGES.rst",
+      "README.md": "/tmp/flask_real_project/README.md",
+      "uv.lock": "/tmp/flask_real_project/uv.lock",
+      "LICENSE.txt": "/tmp/flask_real_project/LICENSE.txt",
+      "pyproject.toml": "/tmp/flask_real_project/pyproject.toml",
+      ".readthedocs.yaml": "/tmp/flask_real_project/.readthedocs.yaml"
+    },
+    "test_files": [
+      "/tmp/flask_real_project/tests/test_logging.py",
+      "/tmp/flask_real_project/tests/test_basic.py",
+      "/tmp/flask_real_project/tests/test_signals.py",
+      "/tmp/flask_real_project/tests/test_session_interface.py",
+      "/tmp/flask_real_project/tests/test_templating.py",
+      "/tmp/flask_real_project/tests/test_cli.py",
+      "/tmp/flask_real_project/tests/test_helpers.py",
+      "/tmp/flask_real_project/tests/test_regression.py",
+      "/tmp/flask_real_project/tests/test_subclassing.py",
+      "/tmp/flask_real_project/tests/test_instance_config.py",
+      "/tmp/flask_real_project/tests/test_views.py",
+      "/tmp/flask_real_project/tests/test_testing.py",
+      "/tmp/flask_real_project/tests/test_user_error_handler.py",
+      "/tmp/flask_real_project/tests/test_appctx.py",
+      "/tmp/flask_real_project/tests/test_blueprints.py",
+      "/tmp/flask_real_project/tests/test_request.py",
+      "/tmp/flask_real_project/tests/test_async.py",
+      "/tmp/flask_real_project/tests/test_config.py",
+      "/tmp/flask_real_project/tests/test_json.py",
+      "/tmp/flask_real_project/tests/test_converters.py",
+      "/tmp/flask_real_project/tests/test_json_tag.py",
+      "/tmp/flask_real_project/tests/test_reqctx.py"
+    ]
+  },
+  "dependencies": {
+    "status": "found",
+    "dependencies": [
+      "pyproject.toml"
+    ],
+    "missing": []
+  },
+  "quality": {
+    "total_files": 24,
+    "total_lines": 9526,
+    "issues": []
+  },
+  "end_time": "2026-05-15T12:10:00.907516+00:00",
+  "summary": {
+    "total_tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "errors": 0,
+    "pass_rate": 100.0,
+    "issues_found": 0
+  }
+}

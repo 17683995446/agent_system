@@ -1,0 +1,113 @@
+# Kubernetes Services - 服务配置
+# Agent 永续自进化运行系统
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-api
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: api
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-evolution
+    component: api
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      name: http
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+      name: metrics
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-redis
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: redis
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-evolution
+    component: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+      name: redis
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-postgres
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: postgres
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-evolution
+    component: postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432
+      name: postgres
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-prometheus
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: prometheus
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-evolution
+    component: prometheus
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+      name: prometheus
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-grafana
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: grafana
+    environment: production
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-evolution
+    component: grafana
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+      name: grafana

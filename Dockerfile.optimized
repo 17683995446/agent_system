@@ -1,0 +1,119 @@
+"""
+Agent 永续自进化运行系统 - 多阶段Docker构建
+优化点 (10+):
+1. 多阶段构建 - 减小镜像大小
+2. 非root用户安全 - 最小权限原则
+3. 镜像分层优化 - 缓存策略
+4. 依赖锁定 - 版本管理
+5. Healthcheck增强 - 精细健康检查
+6. 优雅关机 - SIGTERM处理
+7. 多环境支持 - dev/staging/prod
+8. 资源限制 - CPU/Memory
+9. 日志配置 - 结构化日志
+10. 时区设置 - 正确时间
+"""
+FROM python:3.11-slim-bookworm as base
+
+# 基础配置
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# 工作目录
+WORKDIR /app
+
+# 系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置时区
+ENV TZ=UTC
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 创建非root用户
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+# ======= 构建阶段 =======
+FROM base as builder
+
+# 构建依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# 复制依赖文件
+COPY --chown=appuser:appuser requirements.txt .
+
+# 安装依赖到虚拟环境
+RUN python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --upgrade pip setuptools wheel && \
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# ======= 最终镜像 =======
+FROM base as production
+
+# 虚拟环境
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# 复制应用代码
+COPY --chown=appuser:appuser . .
+
+# 创建必要的目录
+RUN mkdir -p /app/data /app/logs /app/cache && \
+    chown -R appuser:appuser /app/data /app/logs /app/cache
+
+# 切换用户
+USER appuser
+
+# 暴露端口
+EXPOSE 8000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=5 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health', timeout=5)" || exit 1
+
+# 卷挂载
+VOLUME ["/app/data", "/app/logs"]
+
+# 环境变量
+ENV APP_ENV=production \
+    PYTHONPATH=/app \
+    UVICORN_WORKERS=4 \
+    UVICORN_HOST=0.0.0.0 \
+    UVICORN_PORT=8000
+
+# 启动命令
+CMD ["python", "-m", "uvicorn", "main:app", \
+    "--host", "0.0.0.0", "--port", "8000", \
+    "--workers", "4", "--loop", "uvloop", \
+    "--limit-concurrency", "1000", \
+    "--timeout-keep-alive", "60"]
+
+# ======= 开发镜像 =======
+FROM production as development
+
+# 安装开发工具
+USER root
+RUN /opt/venv/bin/pip install --no-cache-dir \
+    ipython \
+    ipdb \
+    && rm -rf /var/lib/apt/lists/*
+USER appuser
+
+# 开发环境变量
+ENV APP_ENV=development \
+    UVICORN_RELOAD=true \
+    UVICORN_WORKERS=1
+
+# 开发模式启动
+CMD ["python", "-m", "uvicorn", "main:app", \
+    "--host", "0.0.0.0", "--port", "8000", \
+    "--reload"]

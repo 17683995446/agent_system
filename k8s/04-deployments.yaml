@@ -1,0 +1,358 @@
+# Kubernetes Deployments - 部署配置
+# Agent 永续自进化运行系统
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-api
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: api
+    environment: production
+    version: v5.1.0
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: api
+  template:
+    metadata:
+      labels:
+        app: agent-evolution
+        component: api
+        version: v5.1.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - agent-evolution
+                    - key: component
+                      operator: In
+                      values:
+                        - api
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: agent-evolution-api
+          image: agent-evolution-api:v5.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          envFrom:
+            - configMapRef:
+                name: agent-evolution-config
+            - secretRef:
+                name: agent-evolution-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data-volume
+              mountPath: /app/data
+            - name: logs-volume
+              mountPath: /app/logs
+      volumes:
+        - name: data-volume
+          emptyDir: {}
+        - name: logs-volume
+          emptyDir: {}
+      securityContext:
+        runAsUser: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-redis
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: redis
+    environment: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: redis
+  template:
+    metadata:
+      labels:
+        app: agent-evolution
+        component: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+              name: redis
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 1
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          args: ["--appendonly", "yes", "--save", "60", "1", "--save", "300", "10"]
+      volumes:
+        - name: redis-data
+          emptyDir: {}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-postgres
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: postgres
+    environment: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: agent-evolution
+        component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: agent-evolution-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agent-evolution-secrets
+                  key: DB_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: agent-evolution-secrets
+                  key: DB_NAME
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(DB_USER)"]
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "$(DB_USER)"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data/pgdata
+          envFrom:
+            - secretRef:
+                name: agent-evolution-secrets
+      volumes:
+        - name: postgres-data
+          emptyDir: {}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-prometheus
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: prometheus
+    environment: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: prometheus
+  template:
+    metadata:
+      labels:
+        app: agent-evolution
+        component: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.52.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9090
+              name: prometheus
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          args:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+            - "--storage.tsdb.retention.time=90d"
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-data
+              mountPath: /prometheus
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: agent-evolution-config
+        - name: prometheus-data
+          emptyDir: {}
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-grafana
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: grafana
+    environment: production
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: grafana
+  template:
+    metadata:
+      labels:
+        app: agent-evolution
+        component: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:11.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: grafana
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: agent-evolution-secrets
+                  key: GRAFANA_USER
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agent-evolution-secrets
+                  key: GRAFANA_PASSWORD
+            - name: GF_USERS_ALLOW_SIGN_UP
+              value: "false"
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+      volumes:
+        - name: grafana-data
+          emptyDir: {}

@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-evolution-api
+  labels:
+    app: agent-evolution-api
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: agent-evolution-api
+  template:
+    metadata:
+      labels:
+        app: agent-evolution-api
+        version: v1
+    spec:
+      containers:
+      - name: api
+        image: agent-evolution-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: agent-evolution-config
+              key: database_url
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: agent-evolution-config
+              key: redis_url
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: agent-evolution-config
+              key: log_level
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-evolution-secrets
+              key: secret_key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: app-data
+          mountPath: /workspace/data
+        - name: app-logs
+          mountPath: /workspace/logs
+      volumes:
+      - name: app-data
+        persistentVolumeClaim:
+          claimName: agent-evolution-data
+      - name: app-logs
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-evolution-api-service
+  labels:
+    app: agent-evolution-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: agent-evolution-api
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-evolution-config
+data:
+  database_url: "postgresql://user:password@postgres:5432/agent_evolution"
+  redis_url: "redis://redis:6379/0"
+  log_level: "INFO"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-evolution-secrets
+type: Opaque
+stringData:
+  secret_key: "change-this-secret-key-in-production"
+  database_password: "your-database-password"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: agent-evolution-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent永续自进化系统 - 架构可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --secondary: #8b5cf6;
+            --accent: #ec4899;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border: #334155;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .header p {
+            color: #c7d2fe;
+            font-size: 1.1rem;
+        }
+        
+        .nav {
+            background: var(--bg-card);
+            padding: 1rem 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-btn {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95rem;
+        }
+        
+        .nav-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .nav-btn.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);
+        }
+        
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        .diagram-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .diagram-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .diagram-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(to bottom, var(--primary), var(--accent));
+            border-radius: 2px;
+        }
+        
+        .mermaid {
+            background: var(--bg-dark);
+            border-radius: 8px;
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+        
+        .layer-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .layer-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+        
+        .layer-item:hover {
+            border-color: var(--primary);
+            transform: translateX(4px);
+        }
+        
+        .layer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .layer-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .layer-badge {
+            background: var(--primary);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .layer-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .layer-files {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+        
+        .timestamp {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .nav {
+                padding: 1rem;
+            }
+            
+            .nav-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.85rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Agent永续自进化系统</h1>
+        <p>七层Clean Architecture 架构可视化</p>
+    </div>
+    
+    <nav class="nav">
+        <button class="nav-btn active" onclick="showSection('overview')">📊 总览</button>
+        <button class="nav-btn" onclick="showSection('architecture')">🏗️ 架构图</button>
+        <button class="nav-btn" onclick="showSection('flow')">📈 流程图</button>
+        <button class="nav-btn" onclick="showSection('sequence')">⏱️ 时序图</button>
+        <button class="nav-btn" onclick="showSection('layers')">📁 架构层</button>
+        <button class="nav-btn" onclick="location.reload()">🔄 刷新</button>
+    </nav>
+    
+    <div class="container">
+        <section id="overview" class="section active">
+            <div class="metrics-grid" id="metricsGrid">
+                <!-- Metrics will be inserted here -->
+            </div>
+        </section>
+        
+        <section id="architecture" class="section">
+            <div class="diagram-card fade-in">
+                <h2 class="diagram-title">七层Clean Architecture架构图</h2>
+                <div class="mermaid" id="sevenLayerDiagram"></div>
+            </div>
+            
+            <div class="diagram-card fade-in">
+                <h2 class="diagram-title">组件关系图</h2>
+                <div class="mermaid" id="componentDiagram"></div>
+            </div>
+        </section>
+        
+        <section id="flow" class="section">
+            <div class="diagram-card fade-in">
+                <h2 class="diagram-title">数据流图</h2>
+                <div class="mermaid" id="dataFlowDiagram"></div>
+            </div>
+            
+            <div class="diagram-card fade-in">
+                <h2 class="diagram-title">进化流程图</h2>
+                <div class="mermaid" id="evolutionFlowDiagram"></div>
+            </div>
+        </section>
+        
+        <section id="sequence" class="section">
+            <div class="diagram-card fade-in">
+                <h2 class="diagram-title">请求处理时序图</h2>
+                <div class="mermaid" id="sequenceDiagram"></div>
+            </div>
+        </section>
+        
+        <section id="layers" class="section">
+            <div class="layer-list" id="layerList">
+                <!-- Layers will be inserted here -->
+            </div>
+        </section>
+    </div>
+    
+    <footer class="footer">
+        <p>最后更新: <span class="timestamp" id="lastUpdate"></span></p>
+        <p style="margin-top: 0.5rem;">Agent永续自进化系统 v2.7.0 | 可视化版本</p>
+    </footer>
+    
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'dark',
+            themeVariables: {
+                primaryColor: '#6366f1',
+                primaryTextColor: '#f1f5f9',
+                primaryBorderColor: '#8b5cf6',
+                lineColor: '#94a3b8',
+                secondaryColor: '#1e293b',
+                tertiaryColor: '#0f172a'
+            }
+        });
+        
+        const diagrams = {"seven_layer": "```mermaid\ngraph TB\n    subgraph API[\"第一层: API接入层\"]\n        A1[JWT认证]\n        A2[请求验证]\n        A3[限流控制]\n    end\n    \n    subgraph ENDPOINTS[\"第二层: API端点层\"]\n        E1[任务端点]\n        E2[记忆端点]\n        E3[知识端点]\n    end\n    \n    subgraph APPLICATION[\"第三层: 应用服务层\"]\n        S1[性能基准]\n        S2[任务服务]\n        S3[进化服务]\n    end\n    \n    subgraph DOMAIN_LOGIC[\"第四层: 领域逻辑层\"]\n        D1[任务逻辑]\n        D2[记忆逻辑]\n        D3[进化引擎]\n    end\n    \n    subgraph DOMAIN_MODEL[\"第五层: 领域模型层\"]\n        M1[任务实体]\n        M2[记忆实体]\n        M3[知识实体]\n        M4[策略实体]\n    end\n    \n    subgraph DATA_ACCESS[\"第六层: 数据访问层\"]\n        R1[任务仓储]\n        R2[记忆仓储]\n        R3[知识仓储]\n    end\n    \n    subgraph INFRA[\"第七层: 基础设施层\"]\n        I1[日志系统]\n        I2[缓存系统]\n        I3[监控系统]\n        I4[数据库连接]\n    end\n    \n    A1 --> A2 --> A3 --> E1\n    A3 --> E2\n    A3 --> E3\n    \n    E1 --> S1 --> D1 --> M1 --> R1 --> I4\n    E2 --> S2 --> D2 --> M2 --> R2 --> I4\n    E3 --> S3 --> D3 --> M3 --> R3 --> I4\n    \n    I1 --> INFRA\n    I2 --> INFRA\n    I3 --> INFRA\n    I4 --> INFRA\n```", "data_flow": "```mermaid\nflowchart LR\n    subgraph INPUT[\"输入\"]\n        U[用户请求]\n        A[Agent任务]\n        S[调度器]\n    end\n    \n    subgraph PROCESSING[\"处理\"]\n        V[验证层]\n        L[日志层]\n        C[缓存层]\n        D[领域层]\n    end\n    \n    subgraph OUTPUT[\"输出\"]\n        R[结果]\n        M[监控数据]\n        L2[日志]\n    end\n    \n    INPUT --> V --> C --> D --> R\n    D --> L --> L2\n    C --> M\n    D --> M\n```", "evolution_flow": "```mermaid\nflowchart TD\n    START([启动]) --> INIT[初始化种群]\n    INIT --> EVAL[评估适应度]\n    EVAL --> SELECT[选择父代]\n    SELECT --> CROSS[基因交叉]\n    CROSS --> MUTATE[基因突变]\n    MUTATE --> NEW_GEN[生成新种群]\n    NEW_GEN --> EVAL\n    EVAL --> CHECK{收敛?}\n    CHECK -->|否| SELECT\n    CHECK -->|是| COMPLETE([进化完成])\n```", "sequence": "```mermaid\nsequenceDiagram\n    participant C as 客户端\n    participant G as API网关\n    participant A as 应用服务\n    participant D as 领域逻辑\n    participant R as 数据访问\n    participant DB as 数据库\n    \n    C->>G: 发送请求\n    G->>G: JWT验证\n    G->>A: 转发请求\n    A->>D: 调用领域逻辑\n    D->>R: 数据操作\n    R->>DB: 数据库查询\n    DB-->>R: 返回结果\n    R-->>D: 返回数据\n    D-->>A: 返回结果\n    A-->>G: 返回响应\n    G-->>C: 返回结果\n```", "component": "```mermaid\ngraph LR\n    subgraph FRONTEND[\"前端\"]\n        W[Web界面]\n        API[API文档]\n    end\n    \n    subgraph BACKEND[\"后端\"]\n        MAIN[主应用]\n        subgraph LAYERS[\"七层架构\"]\n            L1[API接入层]\n            L2[API端点层]\n            L3[应用服务层]\n            L4[领域逻辑层]\n            L5[领域模型层]\n            L6[数据访问层]\n            L7[基础设施层]\n        end\n    end\n    \n    subgraph DATA[\"数据层\"]\n        SQL[(SQLite)]\n        CACHE[(Redis)]\n        LOG[日志]\n    end\n    \n    W --> L1\n    API --> L2\n    L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7\n    L6 --> SQL\n    L7 --> CACHE\n    L7 --> LOG\n```"};
+        const metrics = {"files": {"total": 68, "python": 61, "test": 25, "config": 7}, "layers": {"api_access": {"files": 1, "description": "API接入层"}, "api_endpoints": {"files": 2, "description": "API端点层"}, "application_services": {"files": 1, "description": "应用服务层"}, "domain_logic": {"files": 3, "description": "领域逻辑层"}, "domain_model": {"files": 5, "description": "领域模型层"}, "data_access": {"files": 2, "description": "数据访问层"}, "infrastructure": {"files": 8, "description": "基础设施层"}}, "tests": {"unit": 10, "integration": 5, "system": 2, "real_project": 2}, "dependencies": {"total": 37, "main": ["fastapi", "uvicorn[standard]", "sqlalchemy", "alembic", "aiosqlite"], "dev": []}};
+        
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (sectionId === 'architecture' || sectionId === 'flow' || sectionId === 'sequence') {
+                mermaid.run();
+            }
+        }
+        
+        function renderMetrics() {
+            const grid = document.getElementById('metricsGrid');
+            grid.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${metrics.files.total}</div>
+                    <div class="metric-label">总文件数</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${metrics.files.python}</div>
+                    <div class="metric-label">Python文件</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${metrics.files.test}</div>
+                    <div class="metric-label">测试文件</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${metrics.dependencies.total}</div>
+                    <div class="metric-label">依赖数量</div>
+                </div>
+            `;
+        }
+        
+        function renderLayers() {
+            const list = document.getElementById('layerList');
+            const layerNames = {
+                "api_access": "API接入层",
+                "api_endpoints": "API端点层",
+                "application_services": "应用服务层",
+                "domain_logic": "领域逻辑层",
+                "domain_model": "领域模型层",
+                "data_access": "数据访问层",
+                "infrastructure": "基础设施层"
+            };
+            
+            const layerDescs = {
+                "api_access": "处理JWT认证、请求验证和限流控制",
+                "api_endpoints": "定义RESTful API端点",
+                "application_services": "提供业务用例和应用逻辑",
+                "domain_logic": "封装核心业务规则和领域模型",
+                "domain_model": "定义实体、值对象和聚合根",
+                "data_access": "实现Repository模式和数据库操作",
+                "infrastructure": "提供日志、缓存、监控等基础设施"
+            };
+            
+            let html = '';
+            let i = 1;
+            for (const [key, data] of Object.entries(metrics.layers)) {
+                html += `
+                    <div class="layer-item">
+                        <div class="layer-header">
+                            <span class="layer-name">第${i}层: ${layerNames[key] || key}</span>
+                            <span class="layer-badge">${data.files} 文件</span>
+                        </div>
+                        <p class="layer-desc">${layerDescs[key] || data.description}</p>
+                    </div>
+                `;
+                i++;
+            }
+            list.innerHTML = html;
+        }
+        
+        function renderDiagrams() {
+            document.getElementById('sevenLayerDiagram').innerHTML = diagrams.seven_layer;
+            document.getElementById('componentDiagram').innerHTML = diagrams.component;
+            document.getElementById('dataFlowDiagram').innerHTML = diagrams.data_flow;
+            document.getElementById('evolutionFlowDiagram').innerHTML = diagrams.evolution_flow;
+            document.getElementById('sequenceDiagram').innerHTML = diagrams.sequence;
+        }
+        
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleString('zh-CN');
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            renderMetrics();
+            renderLayers();
+            renderDiagrams();
+            updateTimestamp();
+        });
+    </script>
+</body>
+</html>

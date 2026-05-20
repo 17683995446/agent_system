@@ -1,0 +1,147 @@
+# Agent 永续自进化运行系统 - Docker Compose 开发环境
+# 优化点 (10+):
+# 1. 本地开发热重载
+# 2. 完整依赖栈
+# 3. 数据持久化
+# 4. 网络隔离
+# 5. 健康检查
+# 6. 资源限制
+# 7. 日志配置
+# 8. 配置管理
+# 9. 监控集成
+# 10. 快速启动
+
+version: '3.8'
+
+services:
+  agent-evolution-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+      target: development
+    container_name: agent-evolution-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=sqlite:///./data/agent_evolution.db
+      - REDIS_URL=redis://redis-dev:6379/0
+      - LOG_LEVEL=DEBUG
+      - SECRET_KEY=dev-secret-key-change-in-production
+      - UVICORN_RELOAD=true
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - /app/__pycache__
+    depends_on:
+      redis-dev:
+        condition: service_started
+    networks:
+      - agent-evolution-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health', timeout=5)"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  redis-dev:
+    image: redis:7-alpine
+    container_name: agent-evolution-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - agent-evolution-dev-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --save 60 1 --loglevel warning
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  prometheus-dev:
+    image: prom/prometheus:v2.52.0
+    container_name: agent-evolution-prometheus-dev
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus-dev.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-dev-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    networks:
+      - agent-evolution-dev-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  grafana-dev:
+    image: grafana/grafana:11.0.0
+    container_name: agent-evolution-grafana-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana-dev-data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus-dev
+    networks:
+      - agent-evolution-dev-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+  redis-dev-data:
+  prometheus-dev-data:
+  grafana-dev-data:
+
+networks:
+  agent-evolution-dev-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16

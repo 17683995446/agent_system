@@ -1,0 +1,222 @@
+# Agent 永续自进化运行系统 - CI工作流
+name: CI
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+
+jobs:
+  lint:
+    name: 代码质量检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ['3.11']
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install black isort ruff mypy pre-commit
+
+      - name: 运行 Ruff 检查
+        run: |
+          ruff check . --output-format=github
+
+      - name: 运行 Black 格式化检查
+        run: |
+          black --check --diff .
+
+      - name: 运行 isort 导入排序检查
+        run: |
+          isort --check --diff .
+
+      - name: 运行 Mypy 类型检查
+        run: |
+          mypy .
+
+  test:
+    name: 测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: lint
+    strategy:
+      matrix:
+        python-version: ['3.11']
+
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: '**/requirements.txt'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist
+
+      - name: 运行单元测试
+        run: |
+          pytest test_phase8_distributed.py -v --cov=./ --cov-report=xml --cov-report=term --cov-report=html
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key
+          APP_ENV: test
+
+      - name: 上传覆盖率报告
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: 保存覆盖率报告
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 7
+
+  security:
+    name: 安全检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: test
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 依赖漏洞扫描 (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: 上传 Trivy 报告到 GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: 运行 Safety 检查
+        run: |
+          pip install safety
+          safety check --full-report --output json
+
+      - name: 运行 Bandit 安全检查
+        run: |
+          pip install bandit
+          bandit -r . -f json -o bandit-report.json
+
+  build:
+    name: Docker 构建
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: security
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 缓存 Docker 层
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: 构建 Docker 镜像
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.optimized
+          target: production
+          push: false
+          tags: |
+            agent-evolution-api:${{ github.sha }}
+            agent-evolution-api:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+
+      - name: 移动缓存
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  summary:
+    name: CI 总结
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [lint, test, security, build]
+    if: always()
+
+    steps:
+      - name: 检查所有工作流状态
+        run: |
+          if [ "${{ needs.lint.result }}" = "success" ] && \
+             [ "${{ needs.test.result }}" = "success" ] && \
+             [ "${{ needs.security.result }}" = "success" ] && \
+             [ "${{ needs.build.result }}" = "success" ]; then
+            echo "✅ 所有 CI 检查通过！"
+          else
+            echo "❌ 部分 CI 检查失败，请查看详细报告"
+            exit 1
+          fi

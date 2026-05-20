@@ -1,0 +1,52 @@
+# Kubernetes NetworkPolicy - 网络隔离
+# Agent 永续自进化运行系统
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agent-evolution-network-policy
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    environment: production
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: agent-evolution
+      ports:
+        - protocol: TCP
+          port: 8000
+    - from:
+        - podSelector:
+            matchLabels:
+              app: agent-evolution
+              component: grafana
+      ports:
+        - protocol: TCP
+          port: 3000
+    - from:
+        - podSelector:
+            matchLabels:
+              app: agent-evolution
+              component: prometheus
+      ports:
+        - protocol: TCP
+          port: 9090
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: agent-evolution
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector: {}
+    - to: {}

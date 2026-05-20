@@ -1,0 +1,91 @@
+{
+  "start_time": "2026-05-15T12:13:36.168452+00:00",
+  "tests": [
+    {
+      "test_name": "evolution_engine_integration",
+      "test_type": "integration",
+      "status": "passed",
+      "duration": 0.009012460708618164,
+      "details": {
+        "generation": 1,
+        "fitness": 100.21397445737918,
+        "diversity": 940.5501775012963
+      }
+    },
+    {
+      "test_name": "jwt_authentication",
+      "test_type": "integration",
+      "status": "error",
+      "duration": 0.21487164497375488,
+      "error": "can't compare offset-naive and offset-aware datetimes"
+    },
+    {
+      "test_name": "cache_system",
+      "test_type": "integration",
+      "status": "passed",
+      "duration": 0.0030870437622070312,
+      "details": {
+        "default_cache": true,
+        "task_cache": true,
+        "stats": {
+          "type": "ttl",
+          "current_size": 1,
+          "max_size": 1000,
+          "hits": 1,
+          "misses": 0,
+          "total": 1,
+          "hit_rate": 1.0,
+          "timestamp": "2026-05-15T12:13:36.395432+00:00"
+        }
+      }
+    },
+    {
+      "test_name": "performance_benchmark",
+      "test_type": "system",
+      "status": "passed",
+      "duration": 0.0033605098724365234,
+      "details": {
+        "benchmark_name": "sample_sync_benchmark",
+        "total_runs": 10,
+        "avg_time": 1.7840700002125233e-05,
+        "ops_per_second": 54586.642553808095
+      }
+    },
+    {
+      "test_name": "database_integration",
+      "test_type": "integration",
+      "status": "passed",
+      "duration": 0.20392560958862305,
+      "details": {
+        "sqlalchemy_compatible": true,
+        "crud_operations": true
+      }
+    },
+    {
+      "test_name": "pydantic_validation",
+      "test_type": "integration",
+      "status": "passed",
+      "duration": 0.0015938282012939453,
+      "details": {
+        "pydantic_v2_compatible": true,
+        "field_validator_works": true
+      }
+    }
+  ],
+  "end_time": "2026-05-15T12:13:36.604364+00:00",
+  "summary": {
+    "total": 6,
+    "passed": 5,
+    "failed": 0,
+    "errors": 1,
+    "pass_rate": 83.33333333333334,
+    "issues_found": 1
+  },
+  "issues": [
+    {
+      "test": "jwt_authentication",
+      "error": "can't compare offset-naive and offset-aware datetimes",
+      "type": "integration_error"
+    }
+  ]
+}

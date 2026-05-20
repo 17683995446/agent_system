@@ -1,0 +1,53 @@
+# Kubernetes PodDisruptionBudget - 高可用性保障
+# Agent 永续自进化运行系统
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-evolution-api-pdb
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: api
+    environment: production
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: api
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-evolution-database-pdb
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: database
+    environment: production
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: redis
+
+---
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-evolution-postgres-pdb
+  namespace: agent-evolution-system
+  labels:
+    app: agent-evolution
+    component: postgres
+    environment: production
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: agent-evolution
+      component: postgres
