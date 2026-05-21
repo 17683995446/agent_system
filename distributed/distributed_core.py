@@ -238,6 +238,10 @@ class ServiceRegistry:
     
     def update_service_health(self, instance_id: str, health_score: float) -> bool:
         """更新服务健康状态"""
+        # 验证健康值范围 [0.0, 1.0]
+        if health_score < 0.0 or health_score > 1.0:
+            raise ValueError("Health score must be between 0.0 and 1.0")
+        
         with self._lock:
             instance = self._instance_index.get(instance_id)
             if instance:
@@ -253,6 +257,40 @@ class ServiceRegistry:
         """获取服务实例"""
         with self._lock:
             return self._instance_index.get(instance_id)
+    
+    def discover_service(self, service_type: ServiceType) -> List[ServiceInstance]:
+        """发现指定类型的服务实例"""
+        with self._lock:
+            instances = []
+            for service_instances in self._services.values():
+                for instance in service_instances:
+                    if instance.service_type == service_type and instance.status == ServiceStatus.HEALTHY:
+                        instances.append(instance)
+            return sorted(instances, key=lambda x: x.load_factor)
+    
+    def unregister_service(self, instance_id: str) -> bool:
+        """注销服务实例 - 同步便捷方法"""
+        with self._lock:
+            instance = self._instance_index.get(instance_id)
+            if instance:
+                service_name = instance.service_name
+                if service_name in self._services:
+                    self._services[service_name] = [
+                        s for s in self._services[service_name]
+                        if s.instance_id != instance_id
+                    ]
+                del self._instance_index[instance_id]
+                return True
+            return False
+    
+    def update_service_status(self, instance_id: str, status: ServiceStatus) -> bool:
+        """更新服务状态"""
+        with self._lock:
+            instance = self._instance_index.get(instance_id)
+            if instance:
+                instance.status = status
+                return True
+            return False
 
 
 class LoadBalancer:

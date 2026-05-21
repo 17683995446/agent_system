@@ -157,6 +157,20 @@ class TenantRegistry:
         is_isolated: bool = False
     ) -> Tenant:
         """创建新租户"""
+        # 输入验证
+        if not name or not name.strip():
+            raise ValueError("Tenant name cannot be empty")
+        if len(name) > 255:
+            raise ValueError("Tenant name cannot exceed 255 characters")
+        if not slug or not slug.strip():
+            raise ValueError("Tenant slug cannot be empty")
+        if len(slug) > 100:
+            raise ValueError("Tenant slug cannot exceed 100 characters")
+        if not email or not email.strip():
+            raise ValueError("Tenant email cannot be empty")
+        if '@' not in email or len(email) > 254:
+            raise ValueError("Invalid email format")
+        
         with self._lock:
             # 检查 slug 唯一性
             if slug in self._tenant_by_slug:
@@ -262,6 +276,10 @@ class TenantRegistry:
     
     def record_usage(self, tenant_id: UUID, resource_type: str, amount: int = 1) -> bool:
         """记录使用量"""
+        # 验证amount必须为正数
+        if amount < 0:
+            raise ValueError("Usage amount must be non-negative")
+        
         with self._usage_lock:
             with self._lock:
                 tenant = self._tenants.get(tenant_id)
