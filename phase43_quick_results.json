@@ -1,0 +1,15 @@
+{
+  "phase": "Phase 43 Quick",
+  "duration_sec": 302.11108350753784,
+  "duration_min": 5.035184725125631,
+  "threads": 500,
+  "total_operations": 251114,
+  "successful_operations": 251114,
+  "failed_operations": 0,
+  "success_rate": 100.0,
+  "qps": 831.1975750261893,
+  "errors": [],
+  "final_tenants": 31,
+  "final_services": 11,
+  "test_time": "2026-05-22T12:33:27.246312"
+}
