@@ -52,14 +52,30 @@ Thumbs.db
 
 # Test Results
 *_results.json
-PHASE*.md
-phase*.py
-test*.py
+*.db
+*.log
+*.json
 deep_e2e_test.py
 defect_discovery*.py
 debug_*.py
 find_quota_issues.py
 run_phase*.sh
+*.pyc
+__pycache__/
+*.swp
+*.swo
+.DS_Store
+.pytest_cache
+.trae
+
+# Ignore large phase test files (but keep completion reports)
+phase*_test.py
+phase*_chaos.py
+phase*_verify.py
+phase*_quick*.py
+test_phase*.py
+fix*.py
+
 
 # Node modules (frontend)
 frontend/node_modules/

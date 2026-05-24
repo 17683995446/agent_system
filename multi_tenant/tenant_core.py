@@ -22,6 +22,20 @@ from datetime import datetime, timedelta
 from uuid import uuid4, UUID
 import threading
 import asyncio
+import logging
+import os
+
+# 配置详细的日志
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'phase44_detailed.log')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] [%(module)s:%(lineno)d] %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class TenantStatus(Enum):
@@ -258,33 +272,42 @@ class TenantRegistry:
     
     def check_quota(self, tenant_id: UUID, resource_type: str, amount: int = 1) -> bool:
         """检查租户配额"""
+        logger.debug(f"[check_quota] 进入方法，tenant_id: {tenant_id}, resource_type: {resource_type}, amount: {amount}")
         with self._lock:
             tenant = self._tenants.get(tenant_id)
-            if not tenant or tenant.status != TenantStatus.ACTIVE:
+            if not tenant:
+                logger.debug(f"[check_quota] 租户不存在: {tenant_id}")
                 return False
-        
-        usage = tenant.usage
-        quota = tenant.quota
-        
-        checks = {
-            "agents": usage.agents_created + amount <= quota.max_agents,
-            "api_calls": usage.requests_this_minute + amount <= quota.max_requests_per_minute,
-            "ai_credits": usage.ai_credits_used + amount <= quota.ai_credit_monthly
-        }
-        
-        return checks.get(resource_type, True)
+            if tenant.status != TenantStatus.ACTIVE:
+                logger.debug(f"[check_quota] 租户状态非 ACTIVE: {tenant.status}")
+                return False
+            
+            usage = tenant.usage
+            quota = tenant.quota
+            
+            checks = {
+                "agents": usage.agents_created + amount <= quota.max_agents,
+                "api_calls": usage.requests_this_minute + amount <= quota.max_requests_per_minute,
+                "ai_credits": usage.ai_credits_used + amount <= quota.ai_credit_monthly
+            }
+            
+            result = checks.get(resource_type, True)
+            logger.debug(f"[check_quota] 检查结果: {result}")
+            return result
     
     def record_usage(self, tenant_id: UUID, resource_type: str, amount: int = 1) -> bool:
         """记录使用量"""
+        logger.debug(f"[record_usage] 进入方法，tenant_id: {tenant_id}, resource_type: {resource_type}, amount: {amount}")
         # 验证amount必须为正数
         if amount < 0:
+            logger.error(f"[record_usage] amount 必须为正数，实际: {amount}")
             raise ValueError("Usage amount must be non-negative")
         
-        with self._usage_lock:
-            with self._lock:
-                tenant = self._tenants.get(tenant_id)
-                if not tenant:
-                    return False
+        with self._lock:  # 使用单一锁避免竞态条件
+            tenant = self._tenants.get(tenant_id)
+            if not tenant:
+                logger.debug(f"[record_usage] 租户不存在: {tenant_id}")
+                return False
             
             usage = tenant.usage
             now = datetime.utcnow()
@@ -292,12 +315,16 @@ class TenantRegistry:
             
             if resource_type == "agents":
                 usage.agents_created += amount
+                logger.debug(f"[record_usage] 记录 agents 使用量: +{amount}，当前: {usage.agents_created}")
             elif resource_type == "api_calls":
                 usage.total_api_calls += amount
                 usage.requests_this_minute += amount
+                logger.debug(f"[record_usage] 记录 api_calls 使用量: +{amount}，当前: {usage.requests_this_minute}")
             elif resource_type == "ai_credits":
                 usage.ai_credits_used += amount
+                logger.debug(f"[record_usage] 记录 ai_credits 使用量: +{amount}，当前: {usage.ai_credits_used}")
             
+            logger.debug(f"[record_usage] 使用量记录成功")
             return True
     
     def generate_api_key(
@@ -361,7 +388,16 @@ class TenantRegistry:
     
     def _get_default_quota(self, tier: TenantTier) -> TenantQuota:
         """根据租户层级获取默认配额"""
+        logger.debug(f"[_get_default_quota] 进入方法，层级: {tier}")
         quotas = {
+            TenantTier.STARTER: TenantQuota(
+                max_agents=2,
+                max_storage_mb=100,
+                max_requests_per_minute=50,
+                max_api_keys=1,
+                max_users=1,
+                ai_credit_monthly=50
+            ),
             TenantTier.FREE: TenantQuota(
                 max_agents=5,
                 max_storage_mb=500,
@@ -393,13 +429,30 @@ class TenantRegistry:
                 max_api_keys=100,
                 max_users=500,
                 ai_credit_monthly=100000
-            )
+            ),
+            TenantTier.UNLIMITED: TenantQuota(
+                max_agents=999999,
+                max_storage_mb=999999999,
+                max_requests_per_minute=999999,
+                max_api_keys=100,
+                max_users=999,
+                ai_credit_monthly=99999999
+            ),
+            TenantTier.CUSTOM: TenantQuota(),
         }
-        return quotas.get(tier, TenantQuota())
+        result = quotas.get(tier, TenantQuota())
+        logger.debug(f"[_get_default_quota] 返回配额: {result}")
+        return result
     
     def _get_default_sla(self, tier: TenantTier) -> TenantSLA:
         """根据租户层级获取默认 SLA"""
+        logger.debug(f"[_get_default_sla] 进入方法，层级: {tier}")
         slas = {
+            TenantTier.STARTER: TenantSLA(
+                uptime_percentage=98.0,
+                response_time_ms=2000,
+                support_level="community"
+            ),
             TenantTier.FREE: TenantSLA(
                 uptime_percentage=99.0,
                 response_time_ms=1000,
@@ -419,9 +472,17 @@ class TenantRegistry:
                 uptime_percentage=99.95,
                 response_time_ms=100,
                 support_level="dedicated"
-            )
+            ),
+            TenantTier.UNLIMITED: TenantSLA(
+                uptime_percentage=99.99,
+                response_time_ms=50,
+                support_level="dedicated_24x7"
+            ),
+            TenantTier.CUSTOM: TenantSLA(),
         }
-        return slas.get(tier, TenantSLA())
+        result = slas.get(tier, TenantSLA())
+        logger.debug(f"[_get_default_sla] 返回 SLA: {result}")
+        return result
 
 
 class TenantSLAMonitor:

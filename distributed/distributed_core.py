@@ -11,6 +11,20 @@ from datetime import datetime, timezone
 import json
 import uuid
 import threading
+import logging
+import os
+
+# 配置详细的日志
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'phase44_detailed.log')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] [%(module)s:%(lineno)d] %(message)s',
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 
 class ServiceStatus(Enum):
@@ -154,6 +168,7 @@ class ServiceRegistry:
         
     async def register(self, instance: ServiceInstance) -> bool:
         """注册服务"""
+        logger.debug(f"[register] 进入方法，service_name: {instance.service_name}, instance_id: {instance.instance_id}")
         with self._lock:
             service_name = instance.service_name
             if service_name not in self._services:
@@ -162,6 +177,7 @@ class ServiceRegistry:
             existing = self._instance_index.get(instance.instance_id)
             if existing:
                 # 从旧位置移除
+                logger.debug(f"[register] 发现已存在的实例，移除旧实例: {existing.instance_id}")
                 self._services[existing.service_name] = [
                     s for s in self._services[existing.service_name]
                     if s.instance_id != existing.instance_id
@@ -169,10 +185,12 @@ class ServiceRegistry:
             
             self._services[service_name].append(instance)
             self._instance_index[instance.instance_id] = instance
+            logger.debug(f"[register] 服务注册成功: {instance.instance_id}")
             return True
     
     async def unregister(self, instance_id: str) -> bool:
         """注销服务"""
+        logger.debug(f"[unregister] 进入方法，instance_id: {instance_id}")
         with self._lock:
             instance = self._instance_index.get(instance_id)
             if instance:
@@ -181,16 +199,20 @@ class ServiceRegistry:
                     if s.instance_id != instance_id
                 ]
                 del self._instance_index[instance_id]
+                logger.debug(f"[unregister] 服务注销成功: {instance_id}")
                 return True
+            logger.debug(f"[unregister] 服务实例不存在: {instance_id}")
             return False
     
     async def discover(self, service_name: str) -> List[ServiceInstance]:
         """发现服务"""
+        logger.debug(f"[discover] 进入方法，service_name: {service_name}")
         with self._lock:
             instances = self._services.get(service_name, [])
             healthy = [i for i in instances 
-                      if i.status == ServiceStatus.RUNNING 
+                      if i.status in (ServiceStatus.RUNNING, ServiceStatus.HEALTHY)
                       and i.health_score > 0.5]
+            logger.debug(f"[discover] 找到 {len(instances)} 个实例，其中 {len(healthy)} 个健康")
             return sorted(healthy, key=lambda x: x.load_factor)
     
     async def get_all_services(self) -> Dict[str, List[ServiceInstance]]:
@@ -238,19 +260,34 @@ class ServiceRegistry:
     
     def update_service_health(self, instance_id: str, health_score: float) -> bool:
         """更新服务健康状态"""
+        logger.debug(f"[update_service_health] 进入方法，instance_id: {instance_id}, health_score: {health_score}")
         # 验证健康值范围 [0.0, 1.0]
         if health_score < 0.0 or health_score > 1.0:
+            logger.error(f"[update_service_health] 健康值超出范围: {health_score}")
             raise ValueError("Health score must be between 0.0 and 1.0")
         
         with self._lock:
             instance = self._instance_index.get(instance_id)
             if instance:
+                old_status = instance.status
                 instance.health_score = health_score
+                
+                # 状态转换逻辑
+                if instance.status in (ServiceStatus.STARTING, ServiceStatus.STOPPING, 
+                                     ServiceStatus.STOPPED, ServiceStatus.ERROR):
+                    # 这些状态不应该被健康检查改变
+                    logger.debug(f"[update_service_health] 服务处于 {instance.status} 状态，不更新")
+                    return True
+                
                 if health_score < 0.5:
-                    instance.status = ServiceStatus.DEGRADED
+                    new_status = ServiceStatus.DEGRADED
                 else:
-                    instance.status = ServiceStatus.HEALTHY
+                    new_status = ServiceStatus.HEALTHY
+                
+                instance.status = new_status
+                logger.debug(f"[update_service_health] 服务状态从 {old_status} 更新为 {new_status}")
                 return True
+            logger.debug(f"[update_service_health] 服务实例不存在: {instance_id}")
             return False
     
     def get_service_instance(self, instance_id: str) -> Optional[ServiceInstance]:
@@ -302,25 +339,47 @@ class LoadBalancer:
         
     def select_instance(self, instances: List[ServiceInstance]) -> Optional[ServiceInstance]:
         """选择服务实例"""
+        logger.debug(f"[select_instance] 进入方法，实例数量: {len(instances) if instances else 0}")
+        
+        if not instances:
+            logger.debug("[select_instance] 没有可用实例，返回None")
+            return None
+        
         # 过滤有效实例
         valid_instances = [
             inst for inst in instances 
             if inst.status in (ServiceStatus.HEALTHY, ServiceStatus.RUNNING)
         ]
         
-        # 如果没有有效实例，返回任意实例或None
+        logger.debug(f"[select_instance] 有效实例数量: {len(valid_instances)}")
+        
+        # 如果没有有效实例，降级到次优实例
         if not valid_instances:
-            return instances[0] if instances else None
+            # 尝试降级到 DEGRADED 状态实例
+            degraded_instances = [
+                inst for inst in instances 
+                if inst.status == ServiceStatus.DEGRADED
+            ]
+            if degraded_instances:
+                logger.warning(f"[select_instance] 降级到 DEGRADED 状态实例，选择: {degraded_instances[0].instance_id}")
+                return degraded_instances[0]
+            
+            # 最后尝试其他状态实例
+            logger.warning(f"[select_instance] 没有健康实例，选择第一个实例: {instances[0].instance_id}")
+            return instances[0]
         
         if self.strategy == "round_robin":
-            return self._round_robin(valid_instances)
+            selected = self._round_robin(valid_instances)
         elif self.strategy == "least_load":
-            return self._least_load(valid_instances)
+            selected = self._least_load(valid_instances)
         elif self.strategy == "random":
             import random
-            return random.choice(valid_instances)
+            selected = random.choice(valid_instances)
         else:
-            return valid_instances[0]
+            selected = valid_instances[0]
+        
+        logger.debug(f"[select_instance] 选择实例: {selected.instance_id}")
+        return selected
     
     def _round_robin(self, instances: List[ServiceInstance]) -> ServiceInstance:
         """轮询策略"""
