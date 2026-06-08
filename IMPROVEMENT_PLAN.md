@@ -1,270 +1,205 @@
-# 系统改进计划 v1.0
+# 系统改进计划 v2.0
 
 ## 一、当前问题总结
 
-### 1.1 接口规范问题
+### 1.1 已完成的改进
 
-| 问题 | 影响 | 优先级 |
-|------|------|--------|
-| 部分类未实现抽象接口 | 代码耦合度高，难以替换 | 🔴 高 |
-| 文档字符串不完整 | 可读性差，维护困难 | 🟡 中 |
-| 异常处理不统一 | 错误信息不一致 | 🟡 中 |
-| 缺少输入验证 | 可能导致安全问题 | 🔴 高 |
+| 阶段 | 完成内容 | 状态 |
+|------|----------|------|
+| Phase A | 接口规范化（5个接口文件 + 异常体系） | 已完成 |
+| Phase B | 服务层抽象（3个服务 + 依赖注入容器） | 已完成 |
+| Phase C | 输入验证强化（Pydantic模型 + 手动验证） | 已完成 |
+| Phase D | 测试完善（单元测试 + 集成测试） | 已完成 |
+| Phase E | 文档完善（本文档更新） | 进行中 |
 
-### 1.2 架构问题
+### 1.2 修复的Bug
 
-| 问题 | 影响 | 优先级 |
-|------|------|--------|
-| 模块间依赖关系不够清晰 | 循环依赖风险 | 🟡 中 |
-| 缺少服务层抽象 | 业务逻辑分散 | 🟡 中 |
-| 配置管理不够灵活 | 环境切换复杂 | 🟢 低 |
-
----
-
-## 二、改进步骤（详细规划）
-
-### Phase A: 接口规范化（1-2天）
-
-#### Step 1: 定义核心抽象接口
-
-**目标**: 为所有核心功能定义清晰的抽象接口
-
-**具体任务**:
-1. 创建 `interfaces/` 目录
-2. 定义以下接口文件：
-   - `cache.py` - 缓存接口
-   - `repository.py` - 仓储接口
-   - `security.py` - 安全接口
-   - `monitoring.py` - 监控接口
-   - `config.py` - 配置接口
-
-**验收标准**:
-- [ ] 所有接口都有完整的文档字符串
-- [ ] 所有接口都有类型注解
-- [ ] 接口定义通过单元测试
-
-#### Step 2: 实现接口适配器
-
-**目标**: 确保现有代码实现新定义的接口
-
-**具体任务**:
-1. 修改 `phase48_cache.py` 确保实现 `CacheBackend` 接口
-2. 修改 `phase47_repository.py` 确保实现 `Repository` 接口
-3. 修改 `phase49_security.py` 确保实现安全接口
-4. 修改 `phase50_monitoring.py` 确保实现监控接口
-
-**验收标准**:
-- [ ] 所有实现类都通过接口一致性检查
-- [ ] 现有功能不受影响
-
-#### Step 3: 统一异常处理
-
-**目标**: 建立统一的异常层次结构
-
-**具体任务**:
-1. 创建 `exceptions.py` 定义基础异常类
-2. 修改所有模块使用统一异常
-3. 添加异常转换层
-
-**验收标准**:
-- [ ] 所有异常都继承自 `SystemException`
-- [ ] 错误响应格式统一
+| Bug | 文件 | 修复方式 |
+|-----|------|----------|
+| API Key验证split逻辑错误 | `phase49_security.py` | 使用 `rsplit("_", 1)` 替代 `split("_", 1)` |
+| 调用不存在的方法 | `services/auth_service.py` | `is_token_revoked` → `is_token_blacklisted` |
+| 缺少接口导出 | `interfaces/__init__.py` | 添加 `RateLimiterInterface` 导出 |
 
 ---
 
-### Phase B: 服务层抽象（2-3天）
-
-#### Step 4: 创建应用服务层
-
-**目标**: 将业务逻辑从API层分离
-
-**具体任务**:
-1. 创建 `services/` 目录
-2. 实现以下服务：
-   - `tenant_service.py` - 租户业务逻辑
-   - `auth_service.py` - 认证业务逻辑
-   - `monitoring_service.py` - 监控业务逻辑
-3. 服务层调用仓储层，不直接操作数据库
-
-**验收标准**:
-- [ ] API层只调用服务层
-- [ ] 服务层包含所有业务逻辑
-- [ ] 单元测试覆盖率 ≥ 80%
-
-#### Step 5: 依赖注入容器
-
-**目标**: 实现依赖注入，降低耦合
-
-**具体任务**:
-1. 创建 `container.py` 定义依赖容器
-2. 使用工厂模式创建实例
-3. 支持配置驱动的依赖替换
-
-**验收标准**:
-- [ ] 所有依赖通过容器管理
-- [ ] 支持Mock替换用于测试
-
----
-
-### Phase C: 输入验证强化（1-2天）
-
-#### Step 6: 请求验证层
-
-**目标**: 所有外部输入都有验证
-
-**具体任务**:
-1. 创建 `validators/` 目录
-2. 实现以下验证器：
-   - `tenant_validator.py` - 租户数据验证
-   - `auth_validator.py` - 认证数据验证
-   - `common_validator.py` - 通用验证
-3. 集成到API层
-
-**验收标准**:
-- [ ] 所有API请求都经过验证
-- [ ] 验证错误返回标准格式
-- [ ] 通过安全测试
-
-#### Step 7: 数据序列化
-
-**目标**: 统一数据序列化/反序列化
-
-**具体任务**:
-1. 创建 `schemas/` 目录
-2. 定义Pydantic模型：
-   - `tenant_schemas.py`
-   - `auth_schemas.py`
-   - `common_schemas.py`
-3. 替换现有字典传参
-
-**验收标准**:
-- [ ] 所有数据交换使用Schema
-- [ ] 自动类型验证
-
----
-
-### Phase D: 测试完善（2-3天）
-
-#### Step 8: 单元测试补全
-
-**目标**: 核心功能100%单元测试覆盖
-
-**具体任务**:
-1. 为每个接口创建Mock实现
-2. 编写单元测试：
-   - 正常场景测试
-   - 边界条件测试
-   - 异常场景测试
-3. 使用pytest框架
-
-**验收标准**:
-- [ ] 代码覆盖率 ≥ 80%
-- [ ] 所有接口都有测试
-- [ ] CI/CD集成
-
-#### Step 9: 集成测试
-
-**目标**: 验证模块间协作
-
-**具体任务**:
-1. 创建测试数据库
-2. 编写集成测试：
-   - 端到端API测试
-   - 数据库事务测试
-   - 缓存一致性测试
-3. 使用TestContainers
-
-**验收标准**:
-- [ ] 所有集成场景通过
-- [ ] 测试环境独立
-
----
-
-### Phase E: 文档完善（1-2天）
-
-#### Step 10: API文档
-
-**目标**: 自动生成API文档
-
-**具体任务**:
-1. 集成FastAPI自动文档
-2. 添加OpenAPI标签
-3. 补充示例和说明
-
-**验收标准**:
-- [ ] `/docs` 页面完整
-- [ ] 所有接口有示例
-
-#### Step 11: 架构文档
-
-**目标**: 更新架构文档
-
-**具体任务**:
-1. 更新架构图
-2. 补充模块说明
-3. 添加部署指南
-
-**验收标准**:
-- [ ] 新开发者能快速理解
-- [ ] 部署步骤清晰
-
----
-
-## 三、实施时间表
+## 二、架构概览
 
 ```
-Week 1:
-  Day 1-2: Phase A - 接口规范化
-  Day 3-4: Phase B - 服务层抽象
-  Day 5:   Phase C - 输入验证
-
-Week 2:
-  Day 1-2: Phase D - 测试完善
-  Day 3-4: Phase E - 文档完善
-  Day 5:   验收测试
+agent_system/
+├── interfaces/          # 抽象接口层（Phase A）
+│   ├── __init__.py
+│   ├── cache.py         # CacheBackend, CacheManagerInterface
+│   ├── repository.py    # Repository[T], TenantRepositoryInterface
+│   ├── security.py      # TokenManagerInterface, PermissionCheckerInterface, ...
+│   ├── monitoring.py    # MetricsCollectorInterface, AlertManagerInterface, ...
+│   └── config.py        # ConfigManagerInterface, Environment
+│
+├── services/            # 应用服务层（Phase B）
+│   ├── __init__.py
+│   ├── tenant_service.py    # TenantService
+│   ├── auth_service.py      # AuthService
+│   └── monitoring_service.py # MonitoringService
+│
+├── container.py         # 依赖注入容器（Phase B）
+├── exceptions.py        # 统一异常体系（Phase A）
+├── schemas.py           # 输入验证模型（Phase C）
+│
+├── tests/               # 测试套件（Phase D）
+│   ├── test_container.py
+│   ├── test_security.py
+│   ├── test_cache.py
+│   └── test_integration.py
+│
+├── multi_tenant/        # 多租户核心
+├── distributed/         # 分布式核心
+├── phase46_api.py       # FastAPI接口层
+├── phase47_database.py  # 数据库模型
+├── phase47_repository.py # 仓储实现
+├── phase48_cache.py     # 缓存实现
+├── phase49_security.py  # 安全模块
+├── phase50_monitoring.py # 监控模块
+└── phase51_ha_base.py   # 高可用基础
 ```
 
 ---
 
-## 四、验收检查清单
+## 三、接口规范
 
-### 4.1 代码质量
+### 3.1 缓存接口
 
-- [ ] 所有函数都有类型注解
-- [ ] 所有函数都有文档字符串
-- [ ] 代码复杂度 < 10
-- [ ] 无重复代码
+```python
+class CacheBackend(ABC):
+    @abstractmethod
+    def get(self, key: str) -> Optional[Any]: ...
+    @abstractmethod
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool: ...
+    @abstractmethod
+    def delete(self, key: str) -> bool: ...
+    @abstractmethod
+    def exists(self, key: str) -> bool: ...
+```
 
-### 4.2 接口规范
+### 3.2 仓储接口
 
-- [ ] 所有核心功能有抽象接口
-- [ ] 接口实现通过一致性检查
-- [ ] 接口变更向后兼容
+```python
+T = TypeVar('T')
+class Repository(ABC, Generic[T]):
+    @abstractmethod
+    def get_by_id(self, id: UUID) -> Optional[T]: ...
+    @abstractmethod
+    def list(self, limit: int = 100, offset: int = 0) -> List[T]: ...
+    @abstractmethod
+    def create(self, entity: T) -> T: ...
+    @abstractmethod
+    def update(self, id: UUID, entity: T) -> Optional[T]: ...
+    @abstractmethod
+    def delete(self, id: UUID) -> bool: ...
+```
 
-### 4.3 测试覆盖
+### 3.3 安全接口
 
-- [ ] 单元测试覆盖率 ≥ 80%
-- [ ] 集成测试覆盖核心流程
-- [ ] 混沌测试通过
-
-### 4.4 文档完整
-
-- [ ] API文档自动生成
-- [ ] 架构文档更新
-- [ ] 部署文档完整
+```python
+class TokenManagerInterface(ABC):
+    @abstractmethod
+    def generate_access_token(self, user_id: str, tenant_id: str, permissions: List[str], expires_in: int = 1800) -> str: ...
+    @abstractmethod
+    def verify_token(self, token: str) -> Optional[Dict[str, Any]]: ...
+    @abstractmethod
+    def revoke_token(self, token: str) -> bool: ...
+```
 
 ---
 
-## 五、风险与应对
+## 四、依赖注入
 
-| 风险 | 可能性 | 影响 | 应对措施 |
-|------|--------|------|----------|
-| 接口变更影响现有功能 | 中 | 高 | 逐步迁移，保持兼容 |
-| 测试编写耗时超预期 | 高 | 中 | 优先核心功能 |
-| 文档维护成本 | 中 | 低 | 自动化生成 |
+### 4.1 容器使用
+
+```python
+from container import get_container, get_auth_service
+
+# 方式1：通过容器解析
+container = get_container()
+auth_service = container.resolve("auth_service")
+
+# 方式2：便捷函数
+auth_service = get_auth_service()
+```
+
+### 4.2 注册组件
+
+```python
+from container import Container
+
+container = Container()
+container.register_factory("my_service", lambda c: MyService(), singleton=True)
+```
 
 ---
 
-**计划版本**: v1.0  
-**创建日期**: 2024-05-24  
-**更新频率**: 每周回顾
+## 五、异常体系
+
+```
+SystemException (基础)
+├── ValidationError      (400)
+├── AuthenticationError  (401)
+├── PermissionDeniedError (403)
+├── NotFoundError        (404)
+├── DuplicateError       (409)
+├── RateLimitError       (429)
+├── CacheException       (500)
+├── DatabaseError        (500)
+└── QuotaExceededError   (429)
+```
+
+---
+
+## 六、测试运行
+
+```bash
+# 容器测试
+python tests/test_container.py
+
+# 安全模块测试
+python tests/test_security.py
+
+# 缓存模块测试
+python tests/test_cache.py
+
+# 集成测试
+python tests/test_integration.py
+```
+
+---
+
+## 七、未来五个阶段迭代计划
+
+### Phase F: 数据库迁移与版本管理
+- 引入 Alembic 数据库迁移工具
+- 创建初始迁移脚本
+- 建立数据库版本管理规范
+
+### Phase G: 异步支持
+- 将核心服务改造为异步（async/await）
+- 替换同步数据库操作为异步ORM
+- 添加异步缓存后端（aioredis）
+
+### Phase H: 配置管理强化
+- 实现环境变量驱动的配置系统
+- 支持多环境配置（dev/test/staging/prod）
+- 添加配置热加载能力
+
+### Phase I: 日志与追踪
+- 统一日志格式（JSON结构化）
+- 添加分布式追踪支持（OpenTelemetry）
+- 实现请求链路ID传递
+
+### Phase J: 性能优化
+- 添加数据库连接池
+- 实现缓存预热机制
+- 添加性能基准测试
+
+---
+
+**计划版本**: v2.0
+**更新日期**: 2026-06-08
+**状态**: Phase A-D 已完成，Phase E 进行中

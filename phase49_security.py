@@ -321,7 +321,13 @@ class APIKeyManager:
                 logger.warning(f"[APIKeyManager.verify_api_key] Key格式错误")
                 return None
             
-            key_id, key_secret = full_key.split("_", 1)
+            # key_id 格式为 ak_{hex}，key_secret 为 secret
+            # full_key 格式为 ak_{hex}_{secret}
+            parts = full_key.rsplit("_", 1)
+            if len(parts) != 2:
+                logger.warning(f"[APIKeyManager.verify_api_key] Key格式错误")
+                return None
+            key_id, key_secret = parts
             
             with self._lock:
                 if key_id not in self._api_keys:
